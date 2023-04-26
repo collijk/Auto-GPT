@@ -6,7 +6,7 @@ from selenium.webdriver.remote.webdriver import WebDriver
 
 from autogpt import token_counter
 from autogpt.config import Config
-from autogpt.llm_utils import create_chat_completion
+from autogpt.llm import create_chat_completion
 from autogpt.memory import get_memory
 
 CFG = Config()

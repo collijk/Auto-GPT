@@ -34,9 +34,11 @@ def retry_openai_api(
     no_response_typewriter_msg = {
         "title": "FAILED TO GET RESPONSE FROM OPENAI",
         "title_color": Fore.RED,
-        "content": ("Auto-GPT has failed to get a response from OpenAI's services. "
-                    f"Try running Auto-GPT again, and if the problem the persists try "
-                    f"running it with `{Fore.CYAN}--debug{Fore.RESET}`."),
+        "content": (
+            "Auto-GPT has failed to get a response from OpenAI's services. "
+            f"Try running Auto-GPT again, and if the problem the persists try "
+            f"running it with `{Fore.CYAN}--debug{Fore.RESET}`."
+        ),
     }
 
     def _wrapper(func):

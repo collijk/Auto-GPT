@@ -6,9 +6,7 @@ from colorama import Fore
 
 from autogpt.api_manager import ApiManager
 from autogpt.config import Config
-from autogpt.llm import (
-    openai_provider,
-)
+from autogpt.llm import openai_provider
 from autogpt.logs import logger
 from autogpt.types.openai import Message
 
@@ -89,9 +87,13 @@ def create_chat_completion(
                 return message
 
     if cfg.use_azure:
-        chat_completion_kwargs["deployment_id"] = cfg.get_azure_deployment_id_for_model(model)
+        chat_completion_kwargs["deployment_id"] = cfg.get_azure_deployment_id_for_model(
+            model
+        )
 
-    response = openai_provider.create_chat_completion(messages, **chat_completion_kwargs)
+    response = openai_provider.create_chat_completion(
+        messages, **chat_completion_kwargs
+    )
     api_manager = ApiManager()
     api_manager.update_cost(
         prompt_tokens=response.usage.prompt_tokens,
@@ -133,6 +135,3 @@ def get_ada_embedding(text: str) -> List[float]:
         model=model,
     )
     return embedding["data"][0]["embedding"]
-
-
-

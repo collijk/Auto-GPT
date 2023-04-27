@@ -6,7 +6,6 @@ from colorama import Fore
 
 from autogpt.config import Config
 from autogpt.llm import BudgetManager, Message, openai_provider
-from autogpt.logs import logger
 
 
 def call_ai_function(

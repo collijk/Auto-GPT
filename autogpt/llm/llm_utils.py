@@ -6,9 +6,8 @@ from colorama import Fore
 
 from autogpt.api_manager import ApiManager
 from autogpt.config import Config
-from autogpt.llm import openai_provider
+from autogpt.llm import Message, openai_provider
 from autogpt.logs import logger
-from autogpt.types.openai import Message
 
 
 def call_ai_function(
@@ -86,12 +85,13 @@ def create_chat_completion(
                 # Fixme: using the first available plugin is bound to be confusing for users.
                 return message
 
+    chat_completion_kwargs['api_key'] = cfg.openai_api_key
     if cfg.use_azure:
         chat_completion_kwargs["deployment_id"] = cfg.get_azure_deployment_id_for_model(
             model
         )
 
-    response = openai_provider.create_chat_completion(
+    chat_completion = openai_provider.create_chat_completion(
         messages, **chat_completion_kwargs
     )
     api_manager = ApiManager()
@@ -122,10 +122,11 @@ def get_ada_embedding(text: str) -> List[float]:
     model = "text-embedding-ada-002"
     text = text.replace("\n", " ")
 
+    kwargs = {'api_key': cfg.openai_api_key}
     if cfg.use_azure:
-        kwargs = {"engine": cfg.get_azure_deployment_id_for_model(model)}
+        kwargs['engine'] = cfg.get_azure_deployment_id_for_model(model)
     else:
-        kwargs = {"model": model}
+        kwargs['model'] = model
 
     embedding = openai_provider.create_embedding(text, **kwargs)
     api_manager = ApiManager()

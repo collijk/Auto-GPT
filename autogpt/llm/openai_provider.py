@@ -1,12 +1,17 @@
 import functools
 import time
+from typing import List
 
 import openai
 from colorama import Fore, Style
 from openai.error import APIError, RateLimitError
 
-from autogpt.config import Config
 from autogpt.logs import logger
+from autogpt.llm.base import (
+    Message,
+    EmbeddingResponse,
+    ChatCompletionResponse,
+)
 
 
 def retry_openai_api(
@@ -72,7 +77,9 @@ def retry_openai_api(
             if response is None:
                 logger.typewriter_log(**no_response_typewriter_msg)
                 logger.double_check()
-                quit(1)
+                raise RuntimeError("Failed to get response from OpenAI")
+
+            return response
 
         return _wrapped
 
@@ -84,7 +91,7 @@ def create_embedding(
     text: str,
     *_,
     **kwargs,
-) -> openai.Embedding:
+) -> EmbeddingResponse:
     """Create an embedding using the OpenAI API
 
     Args:
@@ -94,20 +101,23 @@ def create_embedding(
     Returns:
         openai.Embedding: The embedding object.
     """
-    cfg = Config()
-    return openai.Embedding.create(
+    raw_response = openai.Embedding.create(
         input=[text],
-        api_key=cfg.openai_api_key,
         **kwargs,
+    )
+
+    return EmbeddingResponse(
+        embedding=raw_response["data"][0]["embedding"],
+        prompt_tokens_used=raw_response.usage.prompt_tokens,
     )
 
 
 @retry_openai_api
 def create_chat_completion(
-    messages: list,
+    messages: List[Message],
     *_,
     **kwargs,
-) -> openai.ChatCompletion:
+) -> ChatCompletionResponse:
     """Create a chat completion using the OpenAI API
 
     Args:
@@ -118,9 +128,13 @@ def create_chat_completion(
         openai.ChatCompletion: The chat completion object.
 
     """
-    cfg = Config()
-    return openai.Completion.create(
+    raw_response = openai.Completion.create(
         messages=messages,
-        api_key=cfg.openai_api_key,
         **kwargs,
     )
+    return ChatCompletionResponse(
+        content=raw_response[0].message["content"],
+        prompt_tokens_used=raw_response.usage.prompt_tokens,
+        completion_tokens_used=raw_response.usage.completion_tokens,
+    )
+

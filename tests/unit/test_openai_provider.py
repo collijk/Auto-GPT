@@ -104,7 +104,6 @@ def test_retry_openapi_other_api_error(capsys):
 
 
 def test_retry_openapi_no_model_response(capsys):
-
     @retry_openai_api()
     def returns_none():
         return None

@@ -4,10 +4,8 @@ from random import shuffle
 from openai.error import RateLimitError
 
 from autogpt import token_counter
-from autogpt.api_manager import ApiManager
 from autogpt.config import Config
-
-from autogpt.llm import Message, create_chat_completion
+from autogpt.llm import BudgetManager, Message, create_chat_completion
 from autogpt.logs import logger
 
 cfg = Config()
@@ -140,28 +138,12 @@ def chat_with_ai(
                 # Move to the next most recent message in the full message history
                 next_message_to_add_index -= 1
 
-            api_manager = ApiManager()
-            # inform the AI about its remaining budget (if it has one)
-            if api_manager.get_total_budget() > 0.0:
-                remaining_budget = (
-                    api_manager.get_total_budget() - api_manager.get_total_cost()
-                )
-                if remaining_budget < 0:
-                    remaining_budget = 0
-                system_message = (
-                    f"Your remaining API budget is ${remaining_budget:.3f}"
-                    + (
-                        " BUDGET EXCEEDED! SHUT DOWN!\n\n"
-                        if remaining_budget == 0
-                        else " Budget very nearly exceeded! Shut down gracefully!\n\n"
-                        if remaining_budget < 0.005
-                        else " Budget nearly exceeded. Finish up.\n\n"
-                        if remaining_budget < 0.01
-                        else "\n\n"
-                    )
-                )
-                logger.debug(system_message)
-                current_context.append(create_chat_message("system", system_message))
+            budget_manager = BudgetManager()
+            budget_prompt = budget_manager.get_agent_budget_prompt()
+            if budget_prompt:
+                logger.debug(budget_prompt)
+                # inform the AI about its remaining budget (if it has one)
+                current_context.append(create_chat_message("system", budget_prompt))
 
             # Append user input, the length of this is accounted for above
             current_context.extend([create_chat_message("user", user_input)])

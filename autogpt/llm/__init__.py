@@ -1,8 +1,5 @@
-from autogpt.llm.base import (
-    Message,
-    EmbeddingResponse,
-    ChatResponse,
-)
+from autogpt.llm.base import ChatCompletionResponse, EmbeddingResponse, Message
+from autogpt.llm.budget_manager import BudgetManager
 from autogpt.llm.llm_utils import (
     call_ai_function,
     create_chat_completion,
@@ -12,7 +9,8 @@ from autogpt.llm.llm_utils import (
 __all__ = [
     "Message",
     "EmbeddingResponse",
-    "ChatResponse",
+    "ChatCompletionResponse",
+    "BudgetManager",
     "call_ai_function",
     "create_chat_completion",
     "get_ada_embedding",

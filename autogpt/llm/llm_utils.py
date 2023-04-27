@@ -4,9 +4,8 @@ from typing import List, Optional
 
 from colorama import Fore
 
-from autogpt.api_manager import ApiManager
 from autogpt.config import Config
-from autogpt.llm import Message, openai_provider
+from autogpt.llm import BudgetManager, Message, openai_provider
 from autogpt.logs import logger
 
 
@@ -85,28 +84,24 @@ def create_chat_completion(
                 # Fixme: using the first available plugin is bound to be confusing for users.
                 return message
 
-    chat_completion_kwargs['api_key'] = cfg.openai_api_key
+    chat_completion_kwargs["api_key"] = cfg.openai_api_key
     if cfg.use_azure:
         chat_completion_kwargs["deployment_id"] = cfg.get_azure_deployment_id_for_model(
             model
         )
 
-    chat_completion = openai_provider.create_chat_completion(
+    chat_completion_response = openai_provider.create_chat_completion(
         messages, **chat_completion_kwargs
     )
-    api_manager = ApiManager()
-    api_manager.update_cost(
-        prompt_tokens=response.usage.prompt_tokens,
-        completion_tokens=response.usage.completion_tokens,
-        model=model,
-    )
+    budget_manager = BudgetManager()
+    budget_manager.update_cost(chat_completion_response)
 
-    response = response.choices[0].message["content"]
+    content = chat_completion_response.content
     for plugin in cfg.plugins:
         if plugin.can_handle_on_response():
-            response = plugin.on_response(response)
+            content = plugin.on_response(content)
 
-    return response
+    return content
 
 
 def get_ada_embedding(text: str) -> List[float]:
@@ -122,17 +117,14 @@ def get_ada_embedding(text: str) -> List[float]:
     model = "text-embedding-ada-002"
     text = text.replace("\n", " ")
 
-    kwargs = {'api_key': cfg.openai_api_key}
+    kwargs = {
+        "api_key": cfg.openai_api_key,
+        "model": model,
+    }
     if cfg.use_azure:
-        kwargs['engine'] = cfg.get_azure_deployment_id_for_model(model)
-    else:
-        kwargs['model'] = model
+        kwargs["engine"] = cfg.get_azure_deployment_id_for_model(model)
 
-    embedding = openai_provider.create_embedding(text, **kwargs)
-    api_manager = ApiManager()
-    api_manager.update_cost(
-        prompt_tokens=embedding.usage.prompt_tokens,
-        completion_tokens=0,
-        model=model,
-    )
-    return embedding["data"][0]["embedding"]
+    embedding_response = openai_provider.create_embedding(text, **kwargs)
+    budget_manager = BudgetManager()
+    budget_manager.update_cost(embedding_response)
+    return embedding_response.embedding

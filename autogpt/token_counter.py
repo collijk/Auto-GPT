@@ -5,8 +5,8 @@ from typing import List
 
 import tiktoken
 
-from autogpt.logs import logger
 from autogpt.llm import Message
+from autogpt.logs import logger
 
 
 def count_message_tokens(

@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from autogpt.api_manager import ApiManager
 from autogpt.config import Config
+from autogpt.llm import BudgetManager
 from autogpt.workspace import Workspace
 
 pytest_plugins = ["tests.integration.agent_factory"]
@@ -37,7 +37,7 @@ def config(workspace: Workspace) -> Config:
 
 
 @pytest.fixture()
-def api_manager() -> ApiManager:
-    if ApiManager in ApiManager._instances:
-        del ApiManager._instances[ApiManager]
-    return ApiManager()
+def budget_manager() -> BudgetManager:
+    if BudgetManager in BudgetManager._instances:
+        del BudgetManager._instances[BudgetManager]
+    return BudgetManager()

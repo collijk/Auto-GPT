@@ -6,12 +6,53 @@ import openai
 from colorama import Fore, Style
 from openai.error import APIError, RateLimitError
 
-from autogpt.logs import logger
 from autogpt.llm.base import (
-    Message,
-    EmbeddingResponse,
     ChatCompletionResponse,
+    EmbeddingResponse,
+    Message,
+    ModelInfo,
+    ModelType,
 )
+from autogpt.logs import logger
+
+OPEN_AI_CHAT_MODELS = {
+    "gpt-3.5-turbo": ModelInfo(
+        name="gpt-3.5-turbo",
+        model_type=ModelType.chat,
+        prompt_token_cost=0.002,
+        completion_token_cost=0.002,
+        max_tokens=4096,
+    ),
+    "gpt-4": ModelInfo(
+        name="gpt-4",
+        model_type=ModelType.chat,
+        prompt_token_cost=0.03,
+        completion_token_cost=0.06,
+        max_tokens=8192,
+    ),
+    "gpt-4-32k": ModelInfo(
+        name="gpt-4-32k",
+        model_type=ModelType.chat,
+        prompt_token_cost=0.06,
+        completion_token_cost=0.12,
+        max_tokens=32768,
+    ),
+}
+
+OPEN_AI_EMBEDDING_MODELS = {
+    "text-embedding-ada-002": ModelInfo(
+        name="text-embedding-ada-002",
+        model_type=ModelType.embedding,
+        prompt_token_cost=0.0004,
+        completion_token_cost=0.0,
+        max_tokens=8191,
+    ),
+}
+
+OPEN_AI_MODELS = {
+    **OPEN_AI_CHAT_MODELS,
+    **OPEN_AI_EMBEDDING_MODELS,
+}
 
 
 def retry_openai_api(
@@ -89,6 +130,7 @@ def retry_openai_api(
 @retry_openai_api()
 def create_embedding(
     text: str,
+    model: str,
     *_,
     **kwargs,
 ) -> EmbeddingResponse:
@@ -96,17 +138,20 @@ def create_embedding(
 
     Args:
         text (str): The text to embed.
+        model (str): The model to use.
         kwargs: Other arguments to pass to the OpenAI API embedding creation call.
 
     Returns:
         openai.Embedding: The embedding object.
     """
+    model_info = OPEN_AI_EMBEDDING_MODELS[model]
     raw_response = openai.Embedding.create(
         input=[text],
         **kwargs,
     )
 
     return EmbeddingResponse(
+        model_info=model_info,
         embedding=raw_response["data"][0]["embedding"],
         prompt_tokens_used=raw_response.usage.prompt_tokens,
     )
@@ -115,6 +160,7 @@ def create_embedding(
 @retry_openai_api
 def create_chat_completion(
     messages: List[Message],
+    model: str,
     *_,
     **kwargs,
 ) -> ChatCompletionResponse:
@@ -122,19 +168,21 @@ def create_chat_completion(
 
     Args:
         messages (list): A list of messages to feed to the chatbot.
+        model (str): The model to use.
         kwargs: Other arguments to pass to the OpenAI API chat completion call.
 
     Returns:
         openai.ChatCompletion: The chat completion object.
 
     """
+    model_info = OPEN_AI_CHAT_MODELS[model]
     raw_response = openai.Completion.create(
         messages=messages,
         **kwargs,
     )
     return ChatCompletionResponse(
+        model_info=model_info,
         content=raw_response[0].message["content"],
         prompt_tokens_used=raw_response.usage.prompt_tokens,
         completion_tokens_used=raw_response.usage.completion_tokens,
     )
-

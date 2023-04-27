@@ -67,7 +67,6 @@ class TestApiManager:
         assert api_manager.get_total_cost() == (60 * 0.002 + 120 * 0.002) / 1000
         assert api_manager.total_budget == 10.0
 
-
     @staticmethod
     def test_update_cost():
         """Test if updating the cost works correctly."""

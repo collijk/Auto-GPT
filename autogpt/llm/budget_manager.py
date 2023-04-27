@@ -1,18 +1,16 @@
 from __future__ import annotations
+
 import math
 
+from autogpt.llm.base import LLMResponse
 from autogpt.logs import logger
 from autogpt.singleton import Singleton
-from autogpt.llm.base import LLMResponse
-
 
 
 class BudgetManager(metaclass=Singleton):
-
     # TODO: Tune these parameters.
     _GRACEFUL_SHUTDOWN_THRESHOLD = 0.005
     _WARNING_THRESHOLD = 0.01
-
 
     def __init__(self):
         self._total_prompt_tokens = 0
@@ -87,6 +85,3 @@ class BudgetManager(metaclass=Singleton):
             base_prompt += " Budget nearly exceeded. Finish up.\n\n"
 
         return base_prompt
-
-
-

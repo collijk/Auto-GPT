@@ -5,7 +5,7 @@ from typing import List
 
 import tiktoken
 
-from autogpt.llm import Message
+from autogpt.llm.base import Message
 from autogpt.logs import logger
 
 

@@ -127,3 +127,5 @@ def get_ada_embedding(text: str) -> List[float]:
     budget_manager = BudgetManager()
     budget_manager.update_cost(embedding_response)
     return embedding_response.embedding
+
+

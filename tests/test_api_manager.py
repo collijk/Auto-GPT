@@ -1,3 +1,34 @@
+<<<<<<< HEAD
+=======
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from autogpt.llm import COSTS, ApiManager
+
+api_manager = ApiManager()
+
+
+@pytest.fixture(autouse=True)
+def reset_api_manager():
+    api_manager.reset()
+    yield
+
+
+@pytest.fixture(autouse=True)
+def mock_costs():
+    with patch.dict(
+        COSTS,
+        {
+            "gpt-3.5-turbo": {"prompt": 0.002, "completion": 0.002},
+            "text-embedding-ada-002": {"prompt": 0.0004, "completion": 0},
+        },
+        clear=True,
+    ):
+        yield
+
+
+>>>>>>> 7fc6f2abfc8d4795937839f66e017b4e93a986f4
 class TestApiManager:
     # @staticmethod
     # def test_create_chat_completion_debug_mode(caplog):

@@ -12,6 +12,16 @@ def error(request):
         return request.param("Error")
 
 
+@pytest.fixture
+def mock_create_embedding(mocker):
+    mock_response = mocker.MagicMock()
+    mock_response.usage.prompt_tokens = 5
+    mock_response.__getitem__.side_effect = lambda key: [{"embedding": [0.1, 0.2, 0.3]}]
+    return mocker.patch(
+        "autogpt.llm.llm_utils.create_embedding", return_value=mock_response
+    )
+
+
 def error_factory(error_instance, error_count, retry_count, warn_user=True):
     class RaisesError:
         def __init__(self):

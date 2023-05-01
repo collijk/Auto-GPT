@@ -1,4 +1,4 @@
-from autogpt.llm.api_manager import ApiManager
+from autogpt.llm.budget_manager import BudgetManager
 from autogpt.llm.base import (
     ChatModelInfo,
     ChatModelResponse,
@@ -14,11 +14,10 @@ from autogpt.llm.llm_utils import (
     create_chat_completion,
     get_ada_embedding,
 )
-from autogpt.llm.modelsinfo import COSTS
 from autogpt.llm.token_counter import count_message_tokens, count_string_tokens
 
 __all__ = [
-    "ApiManager",
+    "BudgetManager",
     "Message",
     "ModelInfo",
     "ChatModelInfo",
@@ -32,7 +31,6 @@ __all__ = [
     "call_ai_function",
     "create_chat_completion",
     "get_ada_embedding",
-    "COSTS",
     "count_message_tokens",
     "count_string_tokens",
 ]

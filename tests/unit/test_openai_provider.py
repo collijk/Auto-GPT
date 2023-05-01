@@ -1,8 +1,7 @@
 import pytest
 from openai.error import APIError, RateLimitError
 
-from autogpt.llm import COSTS, get_ada_embedding
-from autogpt.llm.llm_utils import retry_openai_api
+from autogpt.llm.openai_provider import retry_openai_api
 
 
 @pytest.fixture(params=[RateLimitError, APIError])
@@ -114,16 +113,13 @@ def test_retry_openapi_other_api_error(capsys):
     assert output.out == ""
 
 
-def test_get_ada_embedding(mock_create_embedding, api_manager):
-    model = "text-embedding-ada-002"
-    embedding = get_ada_embedding("test")
-    mock_create_embedding.assert_called_once_with(
-        "test", model="text-embedding-ada-002"
-    )
+def test_retry_openapi_no_model_response(capsys):
+    @retry_openai_api()
+    def returns_none():
+        return None
 
-    assert embedding == [0.1, 0.2, 0.3]
+    with pytest.raises(RuntimeError):
+        returns_none()
 
-    cost = COSTS[model]["prompt"]
-    assert api_manager.get_total_prompt_tokens() == 5
-    assert api_manager.get_total_completion_tokens() == 0
-    assert api_manager.get_total_cost() == (5 * cost) / 1000
+    output = capsys.readouterr()
+    assert "FAILED TO GET RESPONSE FROM OPENAI" in output.out

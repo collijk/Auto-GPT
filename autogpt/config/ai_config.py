@@ -34,7 +34,7 @@ class AIConfig:
         ai_name: str = "",
         ai_role: str = "",
         ai_goals: list | None = None,
-        api_budget: float = 0.0,
+        api_budget: float = None,
     ) -> None:
         """
         Initialize a class instance

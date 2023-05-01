@@ -2,7 +2,7 @@ from colorama import Fore
 
 from autogpt.config.ai_config import AIConfig
 from autogpt.config.config import Config
-from autogpt.llm import ApiManager
+from autogpt.llm import BudgetManager
 from autogpt.logs import logger
 from autogpt.prompts.generator import PromptGenerator
 from autogpt.setup import prompt_user
@@ -118,8 +118,8 @@ Continue ({CFG.authorise_key}/{CFG.exit_key}): """
         config.save(CFG.ai_settings_file)
 
     # set the total api budget
-    api_manager = ApiManager()
-    api_manager.set_total_budget(config.api_budget)
+    budget_manager = BudgetManager()
+    budget_manager.total_budget = config.api_budget
 
     # Agent Created, print message
     logger.typewriter_log(

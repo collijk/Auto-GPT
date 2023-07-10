@@ -9,7 +9,6 @@ from unittest.mock import patch
 import pytest
 
 from autogpt.config import Config, ConfigBuilder
-from autogpt.configurator import GPT_3_MODEL, GPT_4_MODEL, create_config
 from autogpt.workspace.workspace import Workspace
 
 

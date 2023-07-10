@@ -1,5 +1,6 @@
 import os
 import re
+from pathlib import Path
 
 import requests
 import yaml
@@ -63,9 +64,9 @@ def clean_input(config: Config, prompt: str = "", talk=False):
         exit(0)
 
 
-def validate_yaml_file(yaml_file: str) -> None:
-    with open(yaml_file, encoding="utf-8") as fp:
-        yaml.load(fp.read(), Loader=yaml.FullLoader)
+def validate_yaml_file(yaml_file: str | Path) -> None:
+    with Path(yaml_file).open(encoding="utf-8") as fp:
+        yaml.full_load(fp)
 
 
 def readable_file_size(size, decimal_places=2):

@@ -5,7 +5,6 @@ A module that contains the PromptConfig class object that contains the configura
 import yaml
 
 
-
 class PromptConfig:
     """
     A class object that contains the configuration information for the prompt, which will be used by the prompt generator

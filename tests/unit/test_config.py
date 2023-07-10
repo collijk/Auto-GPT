@@ -4,11 +4,10 @@ for the AI and ensures it behaves as a singleton.
 """
 import os
 from unittest import mock
-from unittest.mock import patch
 
 import pytest
 
-from autogpt.config import Config, ConfigBuilder
+from autogpt.config import GPT_3_MODEL, GPT_4_MODEL, Config, ConfigBuilder
 from autogpt.workspace.workspace import Workspace
 
 
@@ -93,44 +92,6 @@ def test_set_debug_mode(config: Config):
     config.debug_mode = debug_mode
 
 
-@patch("openai.Model.list")
-def test_smart_and_fast_llms_set_to_gpt4(mock_list_models, config: Config):
-    """
-    Test if models update to gpt-3.5-turbo if both are set to gpt-4.
-    """
-    fast_llm = config.fast_llm
-    smart_llm = config.smart_llm
-
-    config.fast_llm = "gpt-4"
-    config.smart_llm = "gpt-4"
-
-    mock_list_models.return_value = {"data": [{"id": "gpt-3.5-turbo"}]}
-
-    create_config(
-        config=config,
-        continuous=False,
-        continuous_limit=False,
-        ai_settings_file="",
-        prompt_settings_file="",
-        skip_reprompt=False,
-        speak=False,
-        debug=False,
-        gpt3only=False,
-        gpt4only=False,
-        memory_type="",
-        browser_name="",
-        allow_downloads=False,
-        skip_news=False,
-    )
-
-    assert config.fast_llm == "gpt-3.5-turbo"
-    assert config.smart_llm == "gpt-3.5-turbo"
-
-    # Reset config
-    config.fast_llm = fast_llm
-    config.smart_llm = smart_llm
-
-
 def test_missing_azure_config(workspace: Workspace):
     config_file = workspace.get_path("azure_config.yaml")
     with pytest.raises(FileNotFoundError):
@@ -190,47 +151,25 @@ azure_model_map:
     del os.environ["AZURE_CONFIG_FILE"]
 
 
-def test_create_config_gpt4only(config: Config) -> None:
+@pytest.mark.parametrize(
+    "fast_llm,smart_llm,available_llm",
+    [
+        (GPT_4_MODEL, GPT_4_MODEL, GPT_4_MODEL),
+        (GPT_4_MODEL, GPT_3_MODEL, GPT_3_MODEL),
+        (GPT_3_MODEL, GPT_4_MODEL, GPT_3_MODEL),
+        (GPT_3_MODEL, GPT_3_MODEL, GPT_3_MODEL),
+    ],
+)
+def test_create_config_valid_llm(fast_llm, smart_llm, available_llm) -> None:
     with mock.patch("autogpt.llm.api_manager.ApiManager.get_models") as mock_get_models:
-        mock_get_models.return_value = [{"id": GPT_4_MODEL}]
-        create_config(
-            config=config,
-            continuous=False,
-            continuous_limit=None,
-            ai_settings_file=None,
-            prompt_settings_file=None,
-            skip_reprompt=False,
-            speak=False,
-            debug=False,
-            gpt3only=False,
-            gpt4only=True,
-            memory_type=None,
-            browser_name=None,
-            allow_downloads=False,
-            skip_news=False,
+        mock_get_models.return_value = [{"id": available_llm}]
+        config = ConfigBuilder.build_config_from_env(
+            {
+                "fast_llm": fast_llm,
+                "smart_llm": smart_llm,
+            }
         )
-        assert config.fast_llm == GPT_4_MODEL
-        assert config.smart_llm == GPT_4_MODEL
-
-
-def test_create_config_gpt3only(config: Config) -> None:
-    with mock.patch("autogpt.llm.api_manager.ApiManager.get_models") as mock_get_models:
-        mock_get_models.return_value = [{"id": GPT_3_MODEL}]
-        create_config(
-            config=config,
-            continuous=False,
-            continuous_limit=None,
-            ai_settings_file=None,
-            prompt_settings_file=None,
-            skip_reprompt=False,
-            speak=False,
-            debug=False,
-            gpt3only=True,
-            gpt4only=False,
-            memory_type=None,
-            browser_name=None,
-            allow_downloads=False,
-            skip_news=False,
-        )
-        assert config.fast_llm == GPT_3_MODEL
-        assert config.smart_llm == GPT_3_MODEL
+        config.openai_api_key = "dummy"
+        config.validate()
+        assert config.fast_llm == available_llm
+        assert config.smart_llm == available_llm

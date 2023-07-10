@@ -5,7 +5,7 @@ import contextlib
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Literal, Optional, Union
 
 import yaml
 from auto_gpt_plugin_template import AutoGPTPluginTemplate
@@ -196,6 +196,22 @@ class Config(SystemSettings, arbitrary_types_allowed=True):
             kwargs["deployment_id"] = deployment_id
         return kwargs
 
+    def validate(self):
+        """Check the configuration for any errors we can fail quickly on.
+
+         Checks here should fail and kill the app or attempt to fallback to a safe default.
+
+        Args:
+            config (Config): The configuration to validate.
+
+        Raises:
+            ValueError: If the configuration is invalid.
+
+        """
+        check_openai_api_key(self)
+        self.fast_llm = check_model(self.fast_llm, model_type="fast_llm", config=self)
+        self.smart_llm = check_model(self.smart_llm, model_type="fast_llm", config=self)
+
 
 class ConfigBuilder(Configurable[Config]):
     default_settings = Config()
@@ -369,6 +385,36 @@ def check_openai_api_key(config: Config) -> None:
         else:
             print("Invalid OpenAI API key!")
             exit(1)
+
+
+def check_model(
+    model_name: str,
+    model_type: Literal["smart_llm", "fast_llm"],
+    config: Config,
+) -> str:
+    """Check if model is available for use. If not, return gpt-3.5-turbo."""
+    from autogpt.llm.api_manager import ApiManager
+    from autogpt.logs import logger
+
+    openai_credentials = {
+        "api_key": config.openai_api_key,
+    }
+    if config.use_azure:
+        openai_credentials.update(config.get_azure_kwargs(model_name))
+
+    api_manager = ApiManager()
+    models = api_manager.get_models(**openai_credentials)
+
+    if any(model_name in m["id"] for m in models):
+        return model_name
+
+    logger.typewriter_log(
+        "WARNING: ",
+        Fore.YELLOW,
+        f"You do not have access to {model_name}. Setting {model_type} to "
+        f"gpt-3.5-turbo.",
+    )
+    return "gpt-3.5-turbo"
 
 
 def _safe_split(s: Union[str, None], sep: str = ",") -> list[str]:

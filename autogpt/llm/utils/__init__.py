@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import List, Literal, Optional
+from typing import TYPE_CHECKING, List, Literal, Optional
 
 from colorama import Fore
 
-from autogpt.config import Config
+if TYPE_CHECKING:
+    from autogpt.config import Config
 
 from ..api_manager import ApiManager
 from ..base import (
@@ -188,30 +189,3 @@ def create_chat_completion(
         if function_call
         else None,
     )
-
-
-def check_model(
-    model_name: str,
-    model_type: Literal["smart_llm", "fast_llm"],
-    config: Config,
-) -> str:
-    """Check if model is available for use. If not, return gpt-3.5-turbo."""
-    openai_credentials = {
-        "api_key": config.openai_api_key,
-    }
-    if config.use_azure:
-        openai_credentials.update(config.get_azure_kwargs(model_name))
-
-    api_manager = ApiManager()
-    models = api_manager.get_models(**openai_credentials)
-
-    if any(model_name in m["id"] for m in models):
-        return model_name
-
-    logger.typewriter_log(
-        "WARNING: ",
-        Fore.YELLOW,
-        f"You do not have access to {model_name}. Setting {model_type} to "
-        f"gpt-3.5-turbo.",
-    )
-    return "gpt-3.5-turbo"

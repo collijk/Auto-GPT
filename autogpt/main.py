@@ -45,15 +45,12 @@ def run_auto_gpt(
     logger.set_level(logging.DEBUG if config_overrides["debug"] else logging.INFO)
 
     config = ConfigBuilder.build_config_from_env(config_overrides)
+    validate_configuration(config)
     # HACK: This is a hack to allow the config into the logger without having to pass it around everywhere
     # or import it directly.
     logger.config = config
 
-    check_openai_api_key(config)
-    config.fast_llm = check_model(config.fast_llm, model_type="fast_llm", config=config)
-    config.smart_llm = check_model(
-        config.smart_llm, model_type="fast_llm", config=config
-    )
+
 
     if install_plugin_deps:
         install_plugin_dependencies()
@@ -141,6 +138,26 @@ def run_auto_gpt(
         config=config,
     )
     agent.start_interaction_loop()
+
+
+def validate_configuration(config: Config):
+    """Check the configuration for any errors we can fail quickly on.
+
+     Checks here should fail and kill the app or attempt to fallback to a safe default.
+
+    Args:
+        config (Config): The configuration to validate.
+
+    Raises:
+        ValueError: If the configuration is invalid.
+
+    """
+    check_openai_api_key(config)
+    config.fast_llm = check_model(config.fast_llm, model_type="fast_llm", config=config)
+    config.smart_llm = check_model(
+        config.smart_llm, model_type="fast_llm", config=config
+    )
+
 
 
 def do_agpt_preamble(config: Config):

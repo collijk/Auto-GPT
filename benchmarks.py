@@ -13,12 +13,14 @@ def run_task(task) -> None:
 
 
 def bootstrap_agent(task):
-    config = ConfigBuilder.build_config_from_env()
-    config.continuous_mode = False
-    config.temperature = 0
-    config.plain_output = True
+    config_overrides = {
+        "continuous_mode": False,
+        "temperature": 0,
+        "plain_output": True,
+        "memory_backend": "no_memory",
+    }
+    config = ConfigBuilder.build_config_from_env(config_overrides)
     command_registry = get_command_registry(config)
-    config.memory_backend = "no_memory"
     workspace_directory = Workspace.get_workspace_directory(config)
     workspace_directory_path = Workspace.make_workspace(workspace_directory)
     Workspace.build_file_logger_path(config, workspace_directory_path)

@@ -3,10 +3,7 @@
 A module that contains the PromptConfig class object that contains the configuration
 """
 import yaml
-from colorama import Fore
 
-from autogpt import utils
-from autogpt.logs import logger
 
 
 class PromptConfig:
@@ -32,12 +29,6 @@ class PromptConfig:
         Returns:
             None
         """
-        # Validate file
-        (validated, message) = utils.validate_yaml_file(prompt_settings_file)
-        if not validated:
-            logger.typewriter_log("FAILED FILE VALIDATION", Fore.RED, message)
-            logger.double_check()
-            exit(1)
 
         with open(prompt_settings_file, encoding="utf-8") as file:
             config_params = yaml.load(file, Loader=yaml.FullLoader)

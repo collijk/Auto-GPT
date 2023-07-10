@@ -141,6 +141,7 @@ def get_supported_memory_backends():
 
 __all__ = [
     "get_memory",
+    "get_supported_memory_backends",
     "MemoryItem",
     "MemoryItemRelevance",
     "JSONFileMemory",

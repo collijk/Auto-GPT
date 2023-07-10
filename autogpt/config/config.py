@@ -4,6 +4,7 @@ from __future__ import annotations
 import contextlib
 import os
 import re
+from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import yaml
@@ -11,13 +12,14 @@ from auto_gpt_plugin_template import AutoGPTPluginTemplate
 from colorama import Fore
 from pydantic import Field, validator
 
+import autogpt
 from autogpt.core.configuration.schema import Configurable, SystemSettings
 from autogpt.plugins.plugins_config import PluginsConfig
 
-AZURE_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "../..", "azure.yaml")
-PLUGINS_CONFIG_FILE = os.path.join(
-    os.path.dirname(__file__), "../..", "plugins_config.yaml"
-)
+REPO_ROOT = Path(autogpt.__file__).parent.parent
+AZURE_CONFIG_FILE = str(REPO_ROOT / "azure.yaml")
+PROMPT_SETTINGS_FILE = str(REPO_ROOT / "prompt_settings.yaml")
+PLUGINS_CONFIG_FILE = str(REPO_ROOT / "plugins_config.yaml")
 GPT_4_MODEL = "gpt-4"
 GPT_3_MODEL = "gpt-3.5-turbo"
 
@@ -45,8 +47,8 @@ class Config(SystemSettings, arbitrary_types_allowed=True):
     # Agent Control Settings #
     ##########################
     # Paths
-    ai_settings_file: str = "ai_settings.yaml"
-    prompt_settings_file: str = "prompt_settings.yaml"
+    ai_settings_file: Optional[str] = None
+    prompt_settings_file: Optional[str] = PROMPT_SETTINGS_FILE
     workspace_path: Optional[str] = None
     file_logger_path: Optional[str] = None
     # Model configuration
@@ -119,7 +121,7 @@ class Config(SystemSettings, arbitrary_types_allowed=True):
     openai_api_version: Optional[str] = None
     openai_organization: Optional[str] = None
     use_azure: bool = False
-    azure_config_file: Optional[str] = AZURE_CONFIG_FILE
+    azure_config_file: Optional[str] = str(REPO_ROOT / "azure.yaml")
     azure_model_to_deployment_id_map: Optional[Dict[str, str]] = None
     # Elevenlabs
     elevenlabs_api_key: Optional[str] = None
@@ -199,7 +201,7 @@ class ConfigBuilder(Configurable[Config]):
     default_settings = Config()
 
     @classmethod
-    def build_config_from_env(cls) -> Config:
+    def build_config_from_env(cls, config_overrides: dict = None) -> Config:
         """Initialize the Config class"""
         config_dict = {
             "authorise_key": os.getenv("AUTHORISE_COMMAND_KEY"),
@@ -302,6 +304,9 @@ class ConfigBuilder(Configurable[Config]):
         openai_organization = os.getenv("OPENAI_ORGANIZATION")
         if openai_organization is not None:
             config_dict["openai_organization"] = openai_organization
+
+        if config_overrides:
+            config_dict.update(config_overrides)
 
         config_dict_without_none_values = {
             k: v for k, v in config_dict.items() if v is not None

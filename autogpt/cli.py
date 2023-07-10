@@ -2,6 +2,27 @@
 from typing import Optional
 
 import click
+import yaml
+
+
+def validate_yaml_loadable(ctx, param, yaml_file):
+    if yaml_file:
+        try:
+            with open(yaml_file, encoding="utf-8") as fp:
+                yaml.load(fp.read(), Loader=yaml.FullLoader)
+        except yaml.YAMLError as e:
+            click.secho("DOUBLE CHECK CONFIGURATION", fg="yellow")
+            click.secho(
+                "Please ensure you've setup and configured everything"
+                " correctly. Read https://github.com/Torantulino/Auto-GPT#readme to "
+                "double check. You can also create a github issue or join the discord"
+                " and ask there!",
+            )
+            raise click.BadParameter(
+                f"Could not load {yaml_file} as valid YAML: {e}"
+            ) from e
+
+    return yaml_file
 
 
 @click.group(invoke_without_command=True)
@@ -15,12 +36,16 @@ import click
 @click.option(
     "--ai-settings",
     "-C",
+    type=click.Path(exists=True),
     help="Specifies which ai_settings.yaml file to use, will also automatically skip the re-prompt.",
+    callback=validate_yaml_loadable,
 )
 @click.option(
     "--prompt-settings",
     "-P",
+    type=click.Path(exists=True),
     help="Specifies which prompt_settings.yaml file to use.",
+    callback=validate_yaml_loadable,
 )
 @click.option(
     "-l",
@@ -111,28 +136,67 @@ def main(
     Start an Auto-GPT assistant.
     """
     # Put imports inside function to avoid importing everything when starting the CLI
+    from autogpt.config import GPT_3_MODEL, GPT_4_MODEL
     from autogpt.main import run_auto_gpt
+    from autogpt.memory.vector import get_supported_memory_backends
 
     if ctx.invoked_subcommand is None:
+        ###################
+        # Check CLI usage #
+        ###################
+        # This section should do CLI usage validation only.
+
+        # Check if continuous limit is used without continuous mode
+        if continuous_limit and not continuous:
+            raise click.UsageError(
+                "--continuous-limit can only be used with --continuous"
+            )
+
+        if gpt3only and gpt4only:
+            raise click.UsageError("--gpt3only and --gpt4only cannot be used together")
+
+        supported_memory = get_supported_memory_backends()
+        if memory_type and memory_type not in supported_memory:
+            raise click.UsageError(
+                f"--use-memory must be one of {supported_memory}, got {memory_type}"
+            )
+
+        ###########################################
+        # Map from CLI options to Auto-GPT config #
+        ###########################################
+        config_overrides = {
+            "debug_mode": debug,
+            "continuous_mode": continuous,
+            "continuous_limit": continuous_limit,
+            "speak_mode": speak,
+            "skip_reprompt": skip_reprompt,
+            "selenium_web_browser": browser_name,
+            "allow_downloads": allow_downloads,
+            "skip_news": skip_news,
+        }
+        if gpt3only:
+            config_overrides["fast_llm"] = GPT_3_MODEL
+            config_overrides["smart_llm"] = GPT_3_MODEL
+        elif gpt4only:
+            config_overrides["fast_llm"] = GPT_4_MODEL
+            config_overrides["smart_llm"] = GPT_4_MODEL
+
+        if memory_type:
+            config_overrides["memory_backend"] = memory_type
+
+        if ai_settings:
+            config_overrides["ai_settings"] = ai_settings
+            config_overrides["skip_reprompt"] = True
+        if prompt_settings:
+            config_overrides["prompt_settings_file"] = prompt_settings
+
         run_auto_gpt(
-            continuous,
-            continuous_limit,
-            ai_settings,
-            prompt_settings,
-            skip_reprompt,
-            speak,
-            debug,
-            gpt3only,
-            gpt4only,
-            memory_type,
-            browser_name,
-            allow_downloads,
-            skip_news,
-            workspace_directory,
-            install_plugin_deps,
-            ai_name,
-            ai_role,
-            ai_goal,
+            workspace_directory=workspace_directory,
+            install_plugin_deps=install_plugin_deps,
+            ai_name=ai_name,
+            ai_role=ai_role,
+            ai_goals=ai_goal,
+            **config_overrides,
         )
 
 

@@ -63,19 +63,9 @@ def clean_input(config: Config, prompt: str = "", talk=False):
         exit(0)
 
 
-def validate_yaml_file(file: str):
-    try:
-        with open(file, encoding="utf-8") as fp:
-            yaml.load(fp.read(), Loader=yaml.FullLoader)
-    except FileNotFoundError:
-        return (False, f"The file {Fore.CYAN}`{file}`{Fore.RESET} wasn't found")
-    except yaml.YAMLError as e:
-        return (
-            False,
-            f"There was an issue while trying to read with your AI Settings file: {e}",
-        )
-
-    return (True, f"Successfully validated {Fore.CYAN}`{file}`{Fore.RESET}!")
+def validate_yaml_file(yaml_file: str) -> None:
+    with open(yaml_file, encoding="utf-8") as fp:
+        yaml.load(fp.read(), Loader=yaml.FullLoader)
 
 
 def readable_file_size(size, decimal_places=2):

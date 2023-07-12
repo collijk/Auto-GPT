@@ -18,6 +18,7 @@ from autogpt.plugins.plugins_config import PluginsConfig
 
 REPO_ROOT = Path(autogpt.__file__).parent.parent
 AZURE_CONFIG_FILE = str(REPO_ROOT / "azure.yaml")
+AI_SETTINGS_FILE = str(REPO_ROOT / "ai_settings.yaml")
 PROMPT_SETTINGS_FILE = str(REPO_ROOT / "prompt_settings.yaml")
 PLUGINS_CONFIG_FILE = str(REPO_ROOT / "plugins_config.yaml")
 GPT_4_MODEL = "gpt-4"
@@ -47,8 +48,8 @@ class Config(SystemSettings, arbitrary_types_allowed=True):
     # Agent Control Settings #
     ##########################
     # Paths
-    ai_settings_file: Optional[str] = None
-    prompt_settings_file: Optional[str] = PROMPT_SETTINGS_FILE
+    ai_settings_file: str = AI_SETTINGS_FILE
+    prompt_settings_file: str = PROMPT_SETTINGS_FILE
     workspace_path: Optional[str] = None
     file_logger_path: Optional[str] = None
     # Model configuration

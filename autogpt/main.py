@@ -41,7 +41,7 @@ def run_auto_gpt(
     **config_overrides,
 ):
     # Configure logging before we do anything else.
-    logger.set_level(logging.DEBUG if config_overrides["debug"] else logging.INFO)
+    logger.set_level(logging.DEBUG if config_overrides["debug_mode"] else logging.INFO)
 
     config = ConfigBuilder.build_config_from_env(config_overrides)
     config.validate()

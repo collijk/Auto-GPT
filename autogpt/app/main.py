@@ -1,17 +1,16 @@
 """The application entry point.  Can be invoked by a CLI or any other front end application."""
-import logging
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
-from colorama import Fore, Style
+from colorama import Back, Fore, Style
 
 from autogpt.agent import Agent
-from autogpt.app.configurator import create_config
+from autogpt.app.configurator import validate_configuration
 from autogpt.app.prompt import construct_full_prompt, construct_main_ai_config
 from autogpt.commands import COMMAND_CATEGORIES
-from autogpt.config.config import ConfigBuilder, check_openai_api_key
-from autogpt.logs import logger
+from autogpt.config.config import Config
+from autogpt.logs import Logger, logger
 from autogpt.memory.vector import get_memory
 from autogpt.models.command_registry import CommandRegistry
 from autogpt.plugins import scan_plugins
@@ -27,91 +26,25 @@ from scripts.install_plugin_deps import install_plugin_dependencies
 
 
 def run_auto_gpt(
-    continuous: bool,
-    continuous_limit: int,
-    ai_settings: str,
-    prompt_settings: str,
-    skip_reprompt: bool,
-    speak: bool,
-    debug: bool,
-    gpt3only: bool,
-    gpt4only: bool,
-    memory_type: str,
-    browser_name: str,
-    allow_downloads: bool,
-    skip_news: bool,
+    configuration_overrides: dict[str, Any],
     workspace_directory: str | Path,
     install_plugin_deps: bool,
     ai_name: Optional[str] = None,
     ai_role: Optional[str] = None,
     ai_goals: tuple[str] = tuple(),
 ):
-    # Configure logging before we do anything else.
-    logger.set_level(logging.DEBUG if debug else logging.INFO)
-
-    config = ConfigBuilder.build_config_from_env()
-    # HACK: This is a hack to allow the config into the logger without having to pass it around everywhere
-    # or import it directly.
+    config = Config(**configuration_overrides)
+    # HACK: This is a hack to allow the config into the logger without having to
+    # pass it around everywhere or import it directly.
     logger.config = config
 
-    # TODO: fill in llm values here
-    check_openai_api_key(config)
-
-    create_config(
-        config,
-        continuous,
-        continuous_limit,
-        ai_settings,
-        prompt_settings,
-        skip_reprompt,
-        speak,
-        debug,
-        gpt3only,
-        gpt4only,
-        memory_type,
-        browser_name,
-        allow_downloads,
-        skip_news,
-    )
-
-    if config.continuous_mode:
-        for line in get_legal_warning().split("\n"):
-            logger.warn(markdown_to_ansi_style(line), "LEGAL:", Fore.RED)
-
-    if not config.skip_news:
-        motd, is_new_motd = get_latest_bulletin()
-        if motd:
-            motd = markdown_to_ansi_style(motd)
-            for motd_line in motd.split("\n"):
-                logger.info(motd_line, "NEWS:", Fore.GREEN)
-            if is_new_motd and not config.chat_messages_enabled:
-                input(
-                    Fore.MAGENTA
-                    + Style.BRIGHT
-                    + "NEWS: Bulletin was updated! Press Enter to continue..."
-                    + Style.RESET_ALL
-                )
-
-        git_branch = get_current_git_branch()
-        if git_branch and git_branch != "stable":
-            logger.typewriter_log(
-                "WARNING: ",
-                Fore.RED,
-                f"You are running on `{git_branch}` branch "
-                "- this is not a supported branch.",
-            )
-        if sys.version_info < (3, 10):
-            logger.typewriter_log(
-                "WARNING: ",
-                Fore.RED,
-                "You are running on an older version of Python. "
-                "Some people have observed problems with certain "
-                "parts of Auto-GPT with this version. "
-                "Please consider upgrading to Python 3.10 or higher.",
-            )
+    # Pydantic handles the data validation for the config like checking types and
+    # such, but we need to manually check for things like the the validity of
+    # model selections and api keys and such.
+    config = validate_configuration(config)
 
     if install_plugin_deps:
-        install_plugin_dependencies()
+        install_plugin_dependencies(config.plugins_dir)
 
     # TODO: have this directory live outside the repository (e.g. in a user's
     #   home directory) and have it come in as a command line argument or part of
@@ -196,3 +129,90 @@ def run_auto_gpt(
         config=config,
     )
     agent.start_interaction_loop()
+
+
+def do_agent_preamble(config: Config, logger: Logger):
+    if config.debug_mode:
+        logger.typewriter_log("Debug Mode: ", Fore.GREEN, "ENABLED")
+
+    if config.continuous_mode:
+        logger.typewriter_log("Continuous Mode: ", Fore.RED, "ENABLED")
+        logger.typewriter_log(
+            "WARNING: ",
+            Fore.RED,
+            "Continuous mode is not recommended. It is potentially dangerous and may"
+            " cause your AI to run forever or carry out actions you would not usually"
+            " authorise. Use at your own risk.",
+        )
+        for line in get_legal_warning().split("\n"):
+            logger.warn(markdown_to_ansi_style(line), "LEGAL:", Fore.RED)
+
+        if config.continuous_limit:
+            logger.typewriter_log(
+                "Continuous Limit: ", Fore.GREEN, f"{config.continuous_limit}"
+            )
+
+    if config.speak_mode:
+        logger.typewriter_log("Speak Mode: ", Fore.GREEN, "ENABLED")
+
+    logger.typewriter_log("Fast Language Model: ", Fore.GREEN, config.fast_llm)
+    logger.typewriter_log("Smart Language Model: ", Fore.GREEN, config.smart_llm)
+    logger.typewriter_log("Memory Backend: ", Fore.GREEN, config.memory_backend)
+
+    if config.ai_settings_file:
+        logger.typewriter_log(
+            "Using AI Settings File:", Fore.GREEN, config.ai_settings_file
+        )
+        config.skip_reprompt = True
+    logger.typewriter_log(
+        "Using Prompt Settings File:", Fore.GREEN, config.prompt_settings_file
+    )
+
+    if config.allow_downloads:
+        logger.typewriter_log("Native Downloading:", Fore.GREEN, "ENABLED")
+        logger.typewriter_log(
+            "WARNING: ",
+            Fore.YELLOW,
+            f"{Back.LIGHTYELLOW_EX}Auto-GPT will now be able to download and save files to your machine.{Back.RESET} "
+            + "It is recommended that you monitor any files it downloads carefully.",
+        )
+        logger.typewriter_log(
+            "WARNING: ",
+            Fore.YELLOW,
+            f"{Back.RED + Style.BRIGHT}ALWAYS REMEMBER TO NEVER OPEN FILES YOU AREN'T SURE OF!{Style.RESET_ALL}",
+        )
+
+    if config.skip_reprompt:
+        logger.typewriter_log("Skip Re-prompt: ", Fore.GREEN, "ENABLED")
+
+    if not config.skip_news:
+        motd, is_new_motd = get_latest_bulletin()
+        if motd:
+            motd = markdown_to_ansi_style(motd)
+            for motd_line in motd.split("\n"):
+                logger.info(motd_line, "NEWS:", Fore.GREEN)
+            if is_new_motd and not config.chat_messages_enabled:
+                input(
+                    Fore.MAGENTA
+                    + Style.BRIGHT
+                    + "NEWS: Bulletin was updated! Press Enter to continue..."
+                    + Style.RESET_ALL
+                )
+
+        git_branch = get_current_git_branch()
+        if git_branch and git_branch != "stable":
+            logger.typewriter_log(
+                "WARNING: ",
+                Fore.RED,
+                f"You are running on `{git_branch}` branch "
+                "- this is not a supported branch.",
+            )
+        if sys.version_info < (3, 10):
+            logger.typewriter_log(
+                "WARNING: ",
+                Fore.RED,
+                "You are running on an older version of Python. "
+                "Some people have observed problems with certain "
+                "parts of Auto-GPT with this version. "
+                "Please consider upgrading to Python 3.10 or higher.",
+            )

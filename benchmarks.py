@@ -1,7 +1,7 @@
 from autogpt.agent import Agent
 from autogpt.app.prompt import construct_full_prompt
 from autogpt.commands import COMMAND_CATEGORIES
-from autogpt.config import AIConfig, Config, ConfigBuilder
+from autogpt.config import AIConfig, Config
 from autogpt.memory.vector import get_memory
 from autogpt.models.command_registry import CommandRegistry
 from autogpt.prompts.default_prompts import DEFAULT_TRIGGERING_PROMPT
@@ -14,12 +14,8 @@ def run_task(task) -> None:
 
 
 def bootstrap_agent(task):
-    config = ConfigBuilder.build_config_from_env()
-    config.continuous_mode = False
-    config.temperature = 0
-    config.plain_output = True
+    config = Config(plain_output=True, memory_backend="no_memory")
     command_registry = get_command_registry(config)
-    config.memory_backend = "no_memory"
     workspace_directory = Workspace.get_workspace_directory(config)
     workspace_directory_path = Workspace.make_workspace(workspace_directory)
     Workspace.build_file_logger_path(config, workspace_directory_path)

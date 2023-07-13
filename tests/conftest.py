@@ -4,12 +4,10 @@ from tempfile import TemporaryDirectory
 
 import pytest
 import yaml
-from pytest_mock import MockerFixture
 
 from autogpt.agent.agent import Agent
 from autogpt.app.prompt import construct_full_prompt
-from autogpt.config import Config, ConfigBuilder
-from autogpt.config.ai_config import AIConfig
+from autogpt.config import Config, AIConfig
 from autogpt.llm.api_manager import ApiManager
 from autogpt.logs import logger
 from autogpt.memory.vector import get_memory
@@ -47,34 +45,21 @@ def temp_plugins_config_file():
 
 
 @pytest.fixture()
-def config(
-    temp_plugins_config_file: str, mocker: MockerFixture, workspace: Workspace
-) -> Config:
-    config = ConfigBuilder.build_config_from_env()
-    if not os.environ.get("OPENAI_API_KEY"):
-        os.environ["OPENAI_API_KEY"] = "sk-dummy"
+def config(temp_plugins_config_file: str, workspace: Workspace) -> Config:
+    config = Config(
+        openai_api_key="sk-dummy",
+        plugins_dir="tests/unit/data/test_plugins",
+        plugins_config_file=temp_plugins_config_file,
+        workspace_path=str(workspace.root),
+        file_logger_path=str(workspace.get_path("file_logger.txt")),
+        plain_output=True,
+    )
+    if os.environ.get("OPENAI_API_KEY"):
+        config.openai_api_key = os.environ.get("OPENAI_API_KEY")
 
     # HACK: this is necessary to ensure PLAIN_OUTPUT takes effect
     logger.config = config
 
-    config.plugins_dir = "tests/unit/data/test_plugins"
-    config.plugins_config_file = temp_plugins_config_file
-
-    # avoid circular dependency
-    from autogpt.plugins.plugins_config import PluginsConfig
-
-    config.plugins_config = PluginsConfig.load_config(
-        plugins_config_file=config.plugins_config_file,
-        plugins_denylist=config.plugins_denylist,
-        plugins_allowlist=config.plugins_allowlist,
-    )
-
-    # Do a little setup and teardown since the config object is a singleton
-    mocker.patch.multiple(
-        config,
-        workspace_path=workspace.root,
-        file_logger_path=workspace.get_path("file_logger.txt"),
-    )
     yield config
 
 
@@ -92,7 +77,6 @@ def agent(config: Config, workspace: Workspace) -> Agent:
         ai_role="A base AI",
         ai_goals=[],
     )
-
     command_registry = CommandRegistry()
     ai_config.command_registry = command_registry
     config.memory_backend = "json_file"

@@ -16,11 +16,13 @@ import click
     "--ai-settings",
     "-C",
     help="Specifies which ai_settings.yaml file to use, will also automatically skip the re-prompt.",
+    type=click.Path(exists=True),
 )
 @click.option(
     "--prompt-settings",
     "-P",
     help="Specifies which prompt_settings.yaml file to use.",
+    type=click.Path(exists=True),
 )
 @click.option(
     "-l",
@@ -111,23 +113,77 @@ def main(
     Start an Auto-GPT assistant.
     """
     # Put imports inside function to avoid importing everything when starting the CLI
+    import logging
+
+    from autogpt.app.configurator import extract_env_file_configuration
     from autogpt.app.main import run_auto_gpt
+    from autogpt.config import GPT_3_MODEL, GPT_4_MODEL
+    from autogpt.logs import logger
+    from autogpt.memory.vector import get_supported_memory_backends
 
     if ctx.invoked_subcommand is None:
+        # Configure logging before we do anything else.
+        logger.set_level(logging.DEBUG if debug else logging.INFO)
+
+        ###################
+        # Check CLI usage #
+        ###################
+        # This section should do CLI usage validation only.
+
+        # Check if continuous limit is used without continuous mode
+        if continuous_limit and not continuous:
+            raise click.UsageError(
+                "--continuous-limit can only be used with --continuous"
+            )
+
+        if gpt3only and gpt4only:
+            raise click.UsageError("--gpt3only and --gpt4only cannot be used together")
+
+        supported_memory = get_supported_memory_backends()
+        if memory_type and memory_type not in supported_memory:
+            raise click.UsageError(
+                f"--use-memory must be one of {supported_memory}, got {memory_type}"
+            )
+
+        ###########################################
+        # Map from CLI options to Auto-GPT config #
+        ###########################################
+        command_line_configuration = {
+            "debug_mode": debug,
+            "continuous_mode": continuous,
+            "continuous_limit": continuous_limit,
+            "speak_mode": speak,
+            "skip_reprompt": skip_reprompt,
+            "selenium_web_browser": browser_name,
+            "allow_downloads": allow_downloads,
+            "skip_news": skip_news,
+        }
+        if gpt3only:
+            command_line_configuration["fast_llm"] = GPT_3_MODEL
+            command_line_configuration["smart_llm"] = GPT_3_MODEL
+        elif gpt4only:
+            command_line_configuration["fast_llm"] = GPT_4_MODEL
+            command_line_configuration["smart_llm"] = GPT_4_MODEL
+
+        if memory_type:
+            command_line_configuration["memory_backend"] = memory_type
+
+        if ai_settings:
+            command_line_configuration["ai_settings"] = ai_settings
+            command_line_configuration["skip_reprompt"] = True
+        if prompt_settings:
+            command_line_configuration["prompt_settings_file"] = prompt_settings
+
+        environment_configuration = extract_env_file_configuration()
+
+        # Override environment configuration with command line configuration
+        configuration_overrides = {
+            **environment_configuration,
+            **command_line_configuration,
+        }
+
         run_auto_gpt(
-            continuous,
-            continuous_limit,
-            ai_settings,
-            prompt_settings,
-            skip_reprompt,
-            speak,
-            debug,
-            gpt3only,
-            gpt4only,
-            memory_type,
-            browser_name,
-            allow_downloads,
-            skip_news,
+            configuration_overrides,
             workspace_directory,
             install_plugin_deps,
             ai_name,

@@ -8,18 +8,17 @@ from pathlib import Path
 from autogpt.logs import logger
 
 
-def install_plugin_dependencies():
+def install_plugin_dependencies(plugins_dir: str) -> None:
     """
     Installs dependencies for all plugins in the plugins dir.
 
     Args:
-        None
+        plugins_dir (str): The path to the plugins directory
 
     Returns:
         None
     """
-    plugins_dir = Path(os.getenv("PLUGINS_DIR", "plugins"))
-
+    plugins_dir = Path(plugins_dir)
     logger.debug(f"Checking for dependencies in zipped plugins...")
 
     # Install zip-based plugins
@@ -62,4 +61,5 @@ def install_plugin_dependencies():
 
 
 if __name__ == "__main__":
-    install_plugin_dependencies()
+    plugins_dir = os.getenv("PLUGINS_DIR", "plugins")
+    install_plugin_dependencies(plugins_dir)

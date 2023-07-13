@@ -56,7 +56,6 @@ jobs:
           PROXY: ${{ secrets.PROXY }}
           AGENT_MODE: ${{ secrets.AGENT_MODE }}
           AGENT_TYPE: ${{ secrets.AGENT_TYPE }}
-          PLAIN_OUTPUT: True
 
       - name: Upload logs as artifact
         if: always()

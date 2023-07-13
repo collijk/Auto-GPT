@@ -1,23 +1,20 @@
 """Configuration class to store the state of bools for different scripts access."""
 from __future__ import annotations
 
-import contextlib
-import os
-import re
-from typing import Any, Dict, Optional, Union
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 import yaml
 from auto_gpt_plugin_template import AutoGPTPluginTemplate
-from colorama import Fore
 from pydantic import Field, validator
 
-from autogpt.core.configuration.schema import Configurable, SystemSettings
+import autogpt
+from autogpt.core.configuration.schema import SystemSettings
 from autogpt.plugins.plugins_config import PluginsConfig
 
-AZURE_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "../..", "azure.yaml")
-PLUGINS_CONFIG_FILE = os.path.join(
-    os.path.dirname(__file__), "../..", "plugins_config.yaml"
-)
+REPO_ROOT = Path(autogpt.__file__).parent.parent
+AZURE_CONFIG_PATH = REPO_ROOT / "azure.yaml"
+PLUGINS_CONFIG_PATH = REPO_ROOT / "plugins_config.yaml"
 GPT_4_MODEL = "gpt-4"
 GPT_3_MODEL = "gpt-3.5-turbo"
 
@@ -45,7 +42,7 @@ class Config(SystemSettings, arbitrary_types_allowed=True):
     # Agent Control Settings #
     ##########################
     # Paths
-    ai_settings_file: str = "ai_settings.yaml"
+    ai_settings_file: Optional[str] = None
     prompt_settings_file: str = "prompt_settings.yaml"
     workspace_path: Optional[str] = None
     file_logger_path: Optional[str] = None
@@ -100,7 +97,7 @@ class Config(SystemSettings, arbitrary_types_allowed=True):
     # Plugin Settings #
     ###################
     plugins_dir: str = "plugins"
-    plugins_config_file: str = PLUGINS_CONFIG_FILE
+    plugins_config_file: str = str(PLUGINS_CONFIG_PATH)
     plugins_config: PluginsConfig = Field(
         default_factory=lambda: PluginsConfig(plugins={})
     )
@@ -119,7 +116,7 @@ class Config(SystemSettings, arbitrary_types_allowed=True):
     openai_api_version: Optional[str] = None
     openai_organization: Optional[str] = None
     use_azure: bool = False
-    azure_config_file: Optional[str] = AZURE_CONFIG_FILE
+    azure_config_file: Optional[str] = str(AZURE_CONFIG_PATH)
     azure_model_to_deployment_id_map: Optional[Dict[str, str]] = None
     # Elevenlabs
     elevenlabs_api_key: Optional[str] = None
@@ -133,6 +130,26 @@ class Config(SystemSettings, arbitrary_types_allowed=True):
     huggingface_api_token: Optional[str] = None
     # Stable Diffusion
     sd_webui_auth: Optional[str] = None
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.plugins_config = PluginsConfig.load_config(
+            self.plugins_config_file,
+            self.plugins_denylist,
+            self.plugins_allowlist,
+        )
+
+        if self.use_azure:
+            with open(self.azure_config_file) as file:
+                config_params = yaml.load(file, Loader=yaml.FullLoader) or {}
+            self.openai_api_type = config_params.get("azure_api_type", "azure")
+            self.openai_api_base = config_params.get("azure_api_base", "")
+            self.openai_api_version = config_params.get(
+                "azure_api_version", "2023-03-15-preview"
+            )
+            self.azure_model_to_deployment_id_map = config_params.get(
+                "azure_model_map", {}
+            )
 
     @validator("plugins", each_item=True)
     def validate_plugins(cls, p: AutoGPTPluginTemplate | Any):
@@ -204,181 +221,3 @@ class Config(SystemSettings, arbitrary_types_allowed=True):
         else:
             kwargs["deployment_id"] = deployment_id
         return kwargs
-
-
-class ConfigBuilder(Configurable[Config]):
-    default_settings = Config()
-
-    @classmethod
-    def build_config_from_env(cls) -> Config:
-        """Initialize the Config class"""
-        config_dict = {
-            "authorise_key": os.getenv("AUTHORISE_COMMAND_KEY"),
-            "exit_key": os.getenv("EXIT_KEY"),
-            "plain_output": os.getenv("PLAIN_OUTPUT", "False") == "True",
-            "shell_command_control": os.getenv("SHELL_COMMAND_CONTROL"),
-            "ai_settings_file": os.getenv("AI_SETTINGS_FILE"),
-            "prompt_settings_file": os.getenv("PROMPT_SETTINGS_FILE"),
-            "fast_llm": os.getenv("FAST_LLM", os.getenv("FAST_LLM_MODEL")),
-            "smart_llm": os.getenv("SMART_LLM", os.getenv("SMART_LLM_MODEL")),
-            "embedding_model": os.getenv("EMBEDDING_MODEL"),
-            "browse_spacy_language_model": os.getenv("BROWSE_SPACY_LANGUAGE_MODEL"),
-            "openai_api_key": os.getenv("OPENAI_API_KEY"),
-            "use_azure": os.getenv("USE_AZURE") == "True",
-            "azure_config_file": os.getenv("AZURE_CONFIG_FILE", AZURE_CONFIG_FILE),
-            "execute_local_commands": os.getenv("EXECUTE_LOCAL_COMMANDS", "False")
-            == "True",
-            "restrict_to_workspace": os.getenv("RESTRICT_TO_WORKSPACE", "True")
-            == "True",
-            "openai_functions": os.getenv("OPENAI_FUNCTIONS", "False") == "True",
-            "elevenlabs_api_key": os.getenv("ELEVENLABS_API_KEY"),
-            "streamelements_voice": os.getenv("STREAMELEMENTS_VOICE"),
-            "text_to_speech_provider": os.getenv("TEXT_TO_SPEECH_PROVIDER"),
-            "github_api_key": os.getenv("GITHUB_API_KEY"),
-            "github_username": os.getenv("GITHUB_USERNAME"),
-            "google_api_key": os.getenv("GOOGLE_API_KEY"),
-            "image_provider": os.getenv("IMAGE_PROVIDER"),
-            "huggingface_api_token": os.getenv("HUGGINGFACE_API_TOKEN"),
-            "huggingface_image_model": os.getenv("HUGGINGFACE_IMAGE_MODEL"),
-            "audio_to_text_provider": os.getenv("AUDIO_TO_TEXT_PROVIDER"),
-            "huggingface_audio_to_text_model": os.getenv(
-                "HUGGINGFACE_AUDIO_TO_TEXT_MODEL"
-            ),
-            "sd_webui_url": os.getenv("SD_WEBUI_URL"),
-            "sd_webui_auth": os.getenv("SD_WEBUI_AUTH"),
-            "selenium_web_browser": os.getenv("USE_WEB_BROWSER"),
-            "selenium_headless": os.getenv("HEADLESS_BROWSER", "True") == "True",
-            "user_agent": os.getenv("USER_AGENT"),
-            "memory_backend": os.getenv("MEMORY_BACKEND"),
-            "memory_index": os.getenv("MEMORY_INDEX"),
-            "redis_host": os.getenv("REDIS_HOST"),
-            "redis_password": os.getenv("REDIS_PASSWORD"),
-            "wipe_redis_on_start": os.getenv("WIPE_REDIS_ON_START", "True") == "True",
-            "plugins_dir": os.getenv("PLUGINS_DIR"),
-            "plugins_config_file": os.getenv("PLUGINS_CONFIG_FILE"),
-            "chat_messages_enabled": os.getenv("CHAT_MESSAGES_ENABLED") == "True",
-        }
-
-        config_dict["disabled_command_categories"] = _safe_split(
-            os.getenv("DISABLED_COMMAND_CATEGORIES")
-        )
-
-        config_dict["shell_denylist"] = _safe_split(
-            os.getenv("SHELL_DENYLIST", os.getenv("DENY_COMMANDS"))
-        )
-        config_dict["shell_allowlist"] = _safe_split(
-            os.getenv("SHELL_ALLOWLIST", os.getenv("ALLOW_COMMANDS"))
-        )
-
-        config_dict["google_custom_search_engine_id"] = os.getenv(
-            "GOOGLE_CUSTOM_SEARCH_ENGINE_ID", os.getenv("CUSTOM_SEARCH_ENGINE_ID")
-        )
-
-        config_dict["elevenlabs_voice_id"] = os.getenv(
-            "ELEVENLABS_VOICE_ID", os.getenv("ELEVENLABS_VOICE_1_ID")
-        )
-        elevenlabs_api_key = os.getenv("ELEVENLABS_API_KEY")
-        if os.getenv("USE_MAC_OS_TTS"):
-            default_tts_provider = "macos"
-        elif elevenlabs_api_key:
-            default_tts_provider = "elevenlabs"
-        elif os.getenv("USE_BRIAN_TTS"):
-            default_tts_provider = "streamelements"
-        else:
-            default_tts_provider = "gtts"
-        config_dict["text_to_speech_provider"] = default_tts_provider
-
-        config_dict["plugins_allowlist"] = _safe_split(os.getenv("ALLOWLISTED_PLUGINS"))
-        config_dict["plugins_denylist"] = _safe_split(os.getenv("DENYLISTED_PLUGINS"))
-        config_dict["plugins_config"] = PluginsConfig.load_config(
-            config_dict["plugins_config_file"],
-            config_dict["plugins_denylist"],
-            config_dict["plugins_allowlist"],
-        )
-
-        with contextlib.suppress(TypeError):
-            config_dict["image_size"] = int(os.getenv("IMAGE_SIZE"))
-        with contextlib.suppress(TypeError):
-            config_dict["redis_port"] = int(os.getenv("REDIS_PORT"))
-        with contextlib.suppress(TypeError):
-            config_dict["temperature"] = float(os.getenv("TEMPERATURE"))
-
-        if config_dict["use_azure"]:
-            azure_config = cls.load_azure_config(config_dict["azure_config_file"])
-            config_dict.update(azure_config)
-
-        elif os.getenv("OPENAI_API_BASE_URL"):
-            config_dict["openai_api_base"] = os.getenv("OPENAI_API_BASE_URL")
-
-        openai_organization = os.getenv("OPENAI_ORGANIZATION")
-        if openai_organization is not None:
-            config_dict["openai_organization"] = openai_organization
-
-        config_dict_without_none_values = {
-            k: v for k, v in config_dict.items() if v is not None
-        }
-
-        return cls.build_agent_configuration(config_dict_without_none_values)
-
-    @classmethod
-    def load_azure_config(cls, config_file: str = AZURE_CONFIG_FILE) -> Dict[str, str]:
-        """
-        Loads the configuration parameters for Azure hosting from the specified file
-          path as a yaml file.
-
-        Parameters:
-            config_file(str): The path to the config yaml file. DEFAULT: "../azure.yaml"
-
-        Returns:
-            Dict
-        """
-        with open(config_file) as file:
-            config_params = yaml.load(file, Loader=yaml.FullLoader) or {}
-
-        return {
-            "openai_api_type": config_params.get("azure_api_type", "azure"),
-            "openai_api_base": config_params.get("azure_api_base", ""),
-            "openai_api_version": config_params.get(
-                "azure_api_version", "2023-03-15-preview"
-            ),
-            "azure_model_to_deployment_id_map": config_params.get(
-                "azure_model_map", {}
-            ),
-        }
-
-
-def check_openai_api_key(config: Config) -> None:
-    """Check if the OpenAI API key is set in config.py or as an environment variable."""
-    if not config.openai_api_key:
-        print(
-            Fore.RED
-            + "Please set your OpenAI API key in .env or as an environment variable."
-            + Fore.RESET
-        )
-        print("You can get your key from https://platform.openai.com/account/api-keys")
-        openai_api_key = input(
-            "If you do have the key, please enter your OpenAI API key now:\n"
-        )
-        key_pattern = r"^sk-\w{48}"
-        openai_api_key = openai_api_key.strip()
-        if re.search(key_pattern, openai_api_key):
-            os.environ["OPENAI_API_KEY"] = openai_api_key
-            config.openai_api_key = openai_api_key
-            print(
-                Fore.GREEN
-                + "OpenAI API key successfully set!\n"
-                + Fore.ORANGE
-                + "NOTE: The API key you've set is only temporary.\n"
-                + "For longer sessions, please set it in .env file"
-                + Fore.RESET
-            )
-        else:
-            print("Invalid OpenAI API key!")
-            exit(1)
-
-
-def _safe_split(s: Union[str, None], sep: str = ",") -> list[str]:
-    """Split a string by a separator. Return an empty list if the string is None."""
-    if s is None:
-        return []
-    return s.split(sep)

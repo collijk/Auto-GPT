@@ -1,11 +1,10 @@
 import argparse
 import logging
 
+from autogpt.app.configurator import extract_env_file_configuration
 from autogpt.commands.file_operations import ingest_file, list_files
-from autogpt.config import ConfigBuilder
+from autogpt.config import Config
 from autogpt.memory.vector import VectorMemory, get_memory
-
-config = ConfigBuilder.build_config_from_env()
 
 
 def configure_logging():
@@ -69,6 +68,8 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    env_config = extract_env_file_configuration()
+    config = Config(**env_config)
     # Initialize memory
     memory = get_memory(config)
     if args.init:

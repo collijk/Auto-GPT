@@ -201,38 +201,6 @@ def run_auto_gpt(
     run_interaction_loop(agent)
 
 
-SignalHandler = Callable[[int, Optional[FrameType]], None]
-
-
-def graceful_agent_interrupt(
-    agent: Agent,
-    logger_: Logger,
-) -> SignalHandler:
-    """Create a signal handler to interrupt an agent executing multiple steps.
-
-    This is used to allow the agent to finish its current step before exiting.
-
-    Args:
-        agent: The agent to interrupt.
-        logger_: The logger to use to print a message.
-
-    Returns:
-        A signal handler that can be used to interrupt the agent.
-    """
-
-    def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
-        if agent.cycle_budget == 0 or agent.cycles_remaining == 0:
-            sys.exit()
-        else:
-            logger_.typewriter_log(
-                "Interrupt signal received. Stopping continuous command execution.",
-                Fore.RED,
-            )
-            agent.cycles_remaining = 0
-
-    return signal_handler
-
-
 def run_interaction_loop(
     agent: Agent,
 ) -> None:
@@ -251,10 +219,6 @@ def run_interaction_loop(
     #########################
     # Application Main Loop #
     #########################
-
-    # Set up an interrupt signal for the agent.
-    signal.signal(signal.SIGINT, graceful_agent_interrupt(agent, logger))
-
     if config.debug_mode:
         logger.typewriter_log(
             f"{ai_config.ai_name} System Prompt:", Fore.GREEN, agent.system_prompt
